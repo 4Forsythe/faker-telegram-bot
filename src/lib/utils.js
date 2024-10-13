@@ -2,11 +2,22 @@ import { faker } from '@faker-js/faker'
 
 /**
  * Функция для получения случайного ключа по переданным параметрам
- * @param {*} format - формат генерации ('uuid' | 'nanoid')
- * @param {*} length - длина символов в строке (number)
+ * @param {'uuid' | 'nanoid'} format - формат генерации ('uuid' | 'nanoid')
+ * @param {number} length - длина символов в строке (number)
  * @returns уникальный ключ в формате uuid или nanoid (по умолчанию возвращает uuid)
  */
 
 export function getRandomKey(format = 'uuid', length = 21) {
   return format === 'uuid' ? faker.string.uuid() : faker.string.nanoid(length)
+}
+
+/**
+ * Функция для генерации случайного пароля по переданным параметрам
+ * @param {number} length - длина символов в строке (number)
+ * @param {boolean} memorable - запоминаемость внешнего вида строки (boolean)
+ * @returns случайно сгенерированный пароль
+ */
+
+export function getRandomPassword(length = 15, memorable = false) {
+  return faker.internet.password({ length, memorable })
 }
