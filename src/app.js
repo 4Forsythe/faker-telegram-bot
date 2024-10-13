@@ -4,6 +4,7 @@ import { Telegraf, Markup, session } from 'telegraf'
 import { message } from 'telegraf/filters'
 
 import KeyService from './services/key.service.js'
+import PasswordService from './services/password.service.js'
 
 const token = process.env.TELEGRAM_BOT_TOKEN
 
@@ -16,6 +17,11 @@ const SESSION = {
   generateKeyOptions: {
     format: 'uuid',
     length: 21,
+    isAwaiting: false,
+  },
+  generatePasswordOptions: {
+    length: 15,
+    memorable: false,
     isAwaiting: false,
   },
 }
@@ -58,10 +64,52 @@ bot.command('start', async (ctx) => {
   )
 })
 
+// bot.hears(API, (ctx) => {
+//   ctx.reply(
+//     '*Какой модуль тебя интересует?*\n\n' +
+//       'Я могу сгенерировать любое количество фейковых данных на основе одной из этих категорий:',
+//     {
+//       parse_mode: 'Markdown',
+//       reply_markup: Markup.inlineKeyboard([
+//         [
+//           Markup.button.callback('📦 Коммерция', 'commerce'),
+//           Markup.button.callback('💸 Финансы', 'finance'),
+//           Markup.button.callback('💌 Адреса', 'location'),
+//         ],
+//         [
+//           Markup.button.callback('👾 Хакерство', 'hacker'),
+//           Markup.button.callback('⏰ Дата', 'date'),
+//           Markup.button.callback('🎧 Музыка', 'music'),
+//         ],
+//         [
+//           Markup.button.callback('🍔 Еда', 'food'),
+//           Markup.button.callback('👨🏻‍💼 Личность', 'person'),
+//           Markup.button.callback('🐼 Животные', 'animal'),
+//         ],
+//         [
+//           Markup.button.callback('☎️ Телефоны', 'phone'),
+//           Markup.button.callback('🌐 Интернет', 'internet'),
+//           Markup.button.callback('🚚 Авто', 'vehicle'),
+//         ],
+//         [
+//           Markup.button.callback('🏛️ Компании', 'commerce'),
+//           Markup.button.callback('🌄 Картинки', 'image'),
+//           Markup.button.callback('🌈 Цвета', 'color'),
+//         ],
+//         [
+//           Markup.button.callback('🔢 Числа', 'number'),
+//           Markup.button.callback('💬 Слова', 'word'),
+//           Markup.button.callback('🅰️ Строки', 'string'),
+//         ],
+//       ]).resize().reply_markup,
+//     }
+//   )
+// })
+
 bot.hears(RANDOMIZER, async (ctx) => {
   await ctx.reply(
     '*Что именно ты хочешь сгенерировать?*\n\n' +
-      'Я могу сгенерировать любое количество фейковых данных на основе одной из перечисленных категорий:',
+      'Я могу случайным образом сгенерировать уникальный ключ (идентификатор), секрет или токен, и надежный пароль.',
     {
       parse_mode: 'Markdown',
       reply_markup: Markup.inlineKeyboard([
@@ -75,14 +123,13 @@ bot.hears(RANDOMIZER, async (ctx) => {
   )
 })
 
+/* KEY ACTIONS */
+
 bot.action('key', async (ctx) => {
   await ctx.answerCbQuery()
   ctx.session = SESSION
 
-  const format = ctx.session.generateKeyOptions.format
-  const length = ctx.session.generateKeyOptions.length
-
-  const { text, options } = KeyService.generate(format, length)
+  const { text, options } = KeyService.generate(ctx)
   await ctx.reply(text, options)
 })
 
@@ -90,16 +137,14 @@ bot.action('key_retry', async (ctx) => {
   await ctx.answerCbQuery()
   ctx.session = SESSION
 
-  const format = ctx.session.generateKeyOptions.format
-  const length = ctx.session.generateKeyOptions.length
   const messageId = ctx.callbackQuery.message.message_id
 
   if (!messageId) {
-    const { text, options } = KeyService.generate(format, length)
+    const { text, options } = KeyService.generate(ctx)
     await ctx.reply(text, options)
   }
 
-  const { text, options } = KeyService.generate(format, length)
+  const { text, options } = KeyService.generate(ctx)
   await ctx.telegram.editMessageText(ctx.chat.id, messageId, messageId, text, options)
 })
 
@@ -152,6 +197,79 @@ bot.action('select_key_length', async (ctx) => {
   )
 })
 
+/* PASSWORD ACTIONS */
+
+bot.action('password', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session = SESSION
+
+  const { text, options } = PasswordService.generate(ctx)
+  await ctx.reply(text, options)
+})
+
+bot.action('password_retry', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session = SESSION
+
+  const messageId = ctx.callbackQuery.message.message_id
+
+  if (!messageId) {
+    const { text, options } = PasswordService.generate(ctx)
+    await ctx.reply(text, options)
+  }
+
+  const { text, options } = PasswordService.generate(ctx)
+  await ctx.telegram.editMessageText(ctx.chat.id, messageId, messageId, text, options)
+})
+
+bot.action('password_options', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session ??= SESSION
+
+  const messageId = ctx.callbackQuery.message.message_id
+
+  const { text, options } = PasswordService.options(ctx)
+
+  if (!messageId) {
+    await ctx.reply(text, options)
+  }
+
+  await ctx.telegram.editMessageText(ctx.chat.id, messageId, messageId, text, options)
+})
+
+bot.action('select_password_length', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session ??= SESSION
+
+  ctx.session.generatePasswordOptions.isAwaiting = true
+
+  return ctx.reply(
+    '*Какую длину мне установить для пароля?*\n\n' +
+      'Напиши в чат сообщение с цифрой от 1 до 300, и я постараюсь что-нибудь придумать.',
+    {
+      parse_mode: 'Markdown',
+    }
+  )
+})
+
+bot.action('select_password_memorable', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session ??= SESSION
+
+  const memorable = ctx.session.generatePasswordOptions.memorable
+  const messageId = ctx.callbackQuery.message.message_id
+
+  ctx.session.generatePasswordOptions.memorable = !memorable
+
+  const { text, options } = PasswordService.options(ctx)
+
+  if (!messageId) {
+    await ctx.reply(text, options)
+  }
+
+  await ctx.telegram.editMessageText(ctx.chat.id, messageId, messageId, text, options)
+})
+
 bot.on(message('text'), async (ctx) => {
   if (ctx.session && ctx.session.generateKeyOptions.isAwaiting) {
     const length = parseInt(ctx.message.text)
@@ -166,6 +284,21 @@ bot.on(message('text'), async (ctx) => {
     }
 
     return ctx.reply('Пожалуйста, введите любое значение от 21 до 200')
+  }
+
+  if (ctx.session && ctx.session.generatePasswordOptions.isAwaiting) {
+    const length = parseInt(ctx.message.text)
+
+    if (length >= 1 && length <= 300) {
+      ctx.session.generatePasswordOptions.length = length
+      ctx.session.generatePasswordOptions.isAwaiting = false
+
+      const { text, options } = PasswordService.options(ctx)
+
+      return ctx.reply(text, options)
+    }
+
+    return ctx.reply('Пожалуйста, введите любое значение от 1 до 300')
   }
 })
 
