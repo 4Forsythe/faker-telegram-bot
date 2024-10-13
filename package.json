@@ -9,11 +9,13 @@
     "start": "node ./src/app.js"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
     "dotenv": "^16.4.5",
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.7",
-    "@faker-js/faker": "^9.0.3"
+    "@faker-js/faker": "^9.0.3",
+    "@types/bcrypt": "^5.0.2",
+    "nodemon": "^3.1.7"
   }
 }
