@@ -3,12 +3,15 @@ import { Markup } from 'telegraf'
 import { getRandomKey } from '../lib/utils.js'
 
 export default class KeyService {
-  static generate(format, length) {
+  static generate(ctx) {
+    const format = ctx.session.generateKeyOptions.format
+    const length = ctx.session.generateKeyOptions.length
+
     const randomKey = getRandomKey(format, length)
 
     return {
       text:
-        '*Сейчас придумаю!*\n\n' +
+        '*🔑 Сейчас придумаю!*\n\n' +
         `${`\`${randomKey}\``}\n\n` +
         'Перейдя в параметры ниже, ты сможешь более детально настроить вариант сгенерированного ключа',
       options: {
