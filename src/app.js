@@ -5,6 +5,7 @@ import { message } from 'telegraf/filters'
 
 import KeyService from './services/key.service.js'
 import PasswordService from './services/password.service.js'
+import TokenService from './services/token.service.js'
 
 const token = process.env.TELEGRAM_BOT_TOKEN
 
@@ -17,6 +18,10 @@ const SESSION = {
   generateKeyOptions: {
     format: 'uuid',
     length: 21,
+    isAwaiting: false,
+  },
+  generateTokenOptions: {
+    length: 32,
     isAwaiting: false,
   },
   generatePasswordOptions: {
@@ -197,6 +202,61 @@ bot.action('select_key_length', async (ctx) => {
   )
 })
 
+/* TOKEN ACTIONS */
+
+bot.action('token', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session = SESSION
+
+  const { text, options } = TokenService.generate(ctx)
+  await ctx.reply(text, options)
+})
+
+bot.action('token_retry', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session = SESSION
+
+  const messageId = ctx.callbackQuery.message.message_id
+
+  if (!messageId) {
+    const { text, options } = TokenService.generate(ctx)
+    await ctx.reply(text, options)
+  }
+
+  const { text, options } = TokenService.generate(ctx)
+  await ctx.telegram.editMessageText(ctx.chat.id, messageId, messageId, text, options)
+})
+
+bot.action('token_options', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session ??= SESSION
+
+  const messageId = ctx.callbackQuery.message.message_id
+
+  const { text, options } = TokenService.options(ctx)
+
+  if (!messageId) {
+    await ctx.reply(text, options)
+  }
+
+  await ctx.telegram.editMessageText(ctx.chat.id, messageId, messageId, text, options)
+})
+
+bot.action('select_token_length', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session ??= SESSION
+
+  ctx.session.generateTokenOptions.isAwaiting = true
+
+  return ctx.reply(
+    '*Какую длину мне установить для токена?*\n\n' +
+      'Напиши в чат сообщение с цифрой от 1 до 500, и я постараюсь что-нибудь придумать.\n\n',
+    {
+      parse_mode: 'Markdown',
+    }
+  )
+})
+
 /* PASSWORD ACTIONS */
 
 bot.action('password', async (ctx) => {
@@ -284,6 +344,21 @@ bot.on(message('text'), async (ctx) => {
     }
 
     return ctx.reply('Пожалуйста, введите любое значение от 21 до 200')
+  }
+
+  if (ctx.session && ctx.session.generateTokenOptions.isAwaiting) {
+    const length = parseInt(ctx.message.text)
+
+    if (length >= 1 && length <= 500) {
+      ctx.session.generateTokenOptions.length = length
+      ctx.session.generateTokenOptions.isAwaiting = false
+
+      const { text, options } = TokenService.options(ctx)
+
+      return ctx.reply(text, options)
+    }
+
+    return ctx.reply('Пожалуйста, введите любое значение от 1 до 500')
   }
 
   if (ctx.session && ctx.session.generatePasswordOptions.isAwaiting) {
