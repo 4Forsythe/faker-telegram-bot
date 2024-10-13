@@ -21,3 +21,13 @@ export function getRandomKey(format = 'uuid', length = 21) {
 export function getRandomPassword(length = 15, memorable = false) {
   return faker.internet.password({ length, memorable })
 }
+
+/**
+ * Функция для генерации уникального токена (секрета)
+ * @param {number} length - длина символов в строке (number)
+ * @returns уникальная строка токена
+ */
+
+export function getRandomToken(length = 10) {
+  return faker.string.sample(length)
+}
