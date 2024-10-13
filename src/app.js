@@ -4,8 +4,9 @@ import { Telegraf, Markup, session } from 'telegraf'
 import { message } from 'telegraf/filters'
 
 import KeyService from './services/key.service.js'
-import PasswordService from './services/password.service.js'
 import TokenService from './services/token.service.js'
+import PasswordService from './services/password.service.js'
+import CryptoService from './services/crypto.service.js'
 
 const token = process.env.TELEGRAM_BOT_TOKEN
 
@@ -27,6 +28,15 @@ const SESSION = {
   generatePasswordOptions: {
     length: 15,
     memorable: false,
+    isAwaiting: false,
+  },
+  generateHashOptions: {
+    value: null,
+    isAwaiting: false,
+  },
+  compareHashOptions: {
+    hash: null,
+    value: null,
     isAwaiting: false,
   },
 }
@@ -124,6 +134,55 @@ bot.hears(RANDOMIZER, async (ctx) => {
           Markup.button.callback('🔐 Пароль', 'password'),
         ],
       ]).resize().reply_markup,
+    }
+  )
+})
+
+bot.hears(CRYPTO, async (ctx) => {
+  await ctx.reply(
+    '*Хеширование и дехеширование*\n\n' +
+      'Я могу захешировать или проверить захешированный пароль, секретный ключ или любую другую строковую информацию на подлинность',
+    {
+      parse_mode: 'Markdown',
+      reply_markup: Markup.inlineKeyboard([
+        [
+          Markup.button.callback('🔒 Захешировать', 'hash'),
+          Markup.button.callback('🔓 Проверишь хеш', 'compare'),
+        ],
+      ]).resize().reply_markup,
+    }
+  )
+})
+
+/* CRYPTO ACTIONS */
+
+bot.action('hash', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session = SESSION
+
+  ctx.session.generateHashOptions.isAwaiting = true
+
+  return ctx.reply(
+    '*Что мне нужно захешировать?*\n\n' +
+      'Напиши в чат сообщение с текстом от 1 до 1000 символов, и я постараюсь что-нибудь придумать',
+    {
+      parse_mode: 'Markdown',
+    }
+  )
+})
+
+bot.action('compare', async (ctx) => {
+  await ctx.answerCbQuery()
+  ctx.session = SESSION
+
+  ctx.session.compareHashOptions.isAwaiting = true
+
+  return ctx.reply(
+    '*Что мне нужно проверить?*\n\n' +
+      'Напиши в чат сообщение с хешем и его значением (то, что нужно проверить) через пробел, и я постараюсь что-нибудь придумать\n\n' +
+      '_* Значение хеша не должно превышать 1000 символов в тексте_',
+    {
+      parse_mode: 'Markdown',
     }
   )
 })
@@ -374,6 +433,40 @@ bot.on(message('text'), async (ctx) => {
     }
 
     return ctx.reply('Пожалуйста, введите любое значение от 1 до 300')
+  }
+
+  if (ctx.session && ctx.session.generateHashOptions.isAwaiting) {
+    const value = String(ctx.message.text)
+
+    if (value.length >= 1 && value.length <= 1000) {
+      ctx.session.generateHashOptions.value = value
+      ctx.session.generateHashOptions.isAwaiting = false
+
+      const { text, options } = await CryptoService.generate(ctx)
+
+      return ctx.reply(text, options)
+    }
+
+    return ctx.reply('Пожалуйста, введите любое значение от 1 до 1000 символов')
+  }
+
+  if (ctx.session && ctx.session.compareHashOptions.isAwaiting) {
+    const message = String(ctx.message.text).split(' ')
+
+    const hash = message[0]
+    const value = message[1]
+
+    if (hash && value) {
+      ctx.session.compareHashOptions.hash = hash
+      ctx.session.compareHashOptions.value = value
+      ctx.session.compareHashOptions.isAwaiting = false
+
+      const { text, options } = await CryptoService.compare(ctx)
+
+      return ctx.reply(text, options)
+    }
+
+    return ctx.reply('Пожалуйста, введите ваш хеш и его значение в строку через пробел')
   }
 })
 
